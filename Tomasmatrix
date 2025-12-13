@@ -1,0 +1,351 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"log"
+	"math"
+	"math/rand"
+	"os"
+	"runtime"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+)
+
+type TridiagonalMatrix struct {
+	N         int   
+	SubDiag   []float64 
+	MainDiag  []float64 
+	SuperDiag []float64
+}
+
+func NewRandomTridiagonal(n int) *TridiagonalMatrix {
+	if n < 2 {
+		log.Fatal("Размер матрицы должен быть не менее 2")
+	}
+	
+	matrix := &TridiagonalMatrix{
+		N:         n,
+		SubDiag:   make([]float64, n-1),
+		MainDiag:  make([]float64, n),
+		SuperDiag: make([]float64, n-1),
+	}
+	
+	for i := 0; i < n-1; i++ {
+		matrix.SubDiag[i] = 1 + rand.Float64()*9   
+		matrix.SuperDiag[i] = 1 + rand.Float64()*9 
+	}
+	
+	for i := 0; i < n; i++ {
+		matrix.MainDiag[i] = 10 + rand.Float64()*90 
+	}
+	
+	return matrix
+}
+
+func (tm *TridiagonalMatrix) SaveToFile(filename string) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	
+	writer := bufio.NewWriter(file)
+	defer writer.Flush()
+	
+	fmt.Fprintf(writer, "%d\n", tm.N)
+	
+	for i, val := range tm.SubDiag {
+		if i > 0 {
+			writer.WriteString(" ")
+		}
+		fmt.Fprintf(writer, "%.18e", val)
+	}
+	writer.WriteString("\n")
+	
+	for i, val := range tm.MainDiag {
+		if i > 0 {
+			writer.WriteString(" ")
+		}
+		fmt.Fprintf(writer, "%.18e", val)
+	}
+	writer.WriteString("\n")
+	
+	for i, val := range tm.SuperDiag {
+		if i > 0 {
+			writer.WriteString(" ")
+		}
+		fmt.Fprintf(writer, "%.18e", val)
+	}
+	writer.WriteString("\n")
+	
+	return nil
+}
+
+func LoadFromFile(filename string) (*TridiagonalMatrix, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	
+	scanner := bufio.NewScanner(file)
+	
+	if !scanner.Scan() {
+		return nil, fmt.Errorf("ошибка чтения размера")
+	}
+	n, err := strconv.Atoi(scanner.Text())
+	if err != nil {
+		return nil, fmt.Errorf("некорректный размер: %v", err)
+	}
+	
+	matrix := &TridiagonalMatrix{N: n}
+	
+	if !scanner.Scan() {
+		return nil, fmt.Errorf("ошибка чтения поддиагонали")
+	}
+	matrix.SubDiag = parseFloatArray(scanner.Text(), n-1)
+	
+	if !scanner.Scan() {
+		return nil, fmt.Errorf("ошибка чтения главной диагонали")
+	}
+	matrix.MainDiag = parseFloatArray(scanner.Text(), n)
+	
+	if !scanner.Scan() {
+		return nil, fmt.Errorf("ошибка чтения наддиагонали")
+	}
+	matrix.SuperDiag = parseFloatArray(scanner.Text(), n-1)
+	
+	return matrix, nil
+}
+
+func parseFloatArray(line string, expectedLen int) []float64 {
+	parts := strings.Fields(line)
+	if len(parts) != expectedLen {
+		log.Fatalf("Ожидалось %d элементов, получено %d", expectedLen, len(parts))
+	}
+	
+	arr := make([]float64, len(parts))
+	for i, part := range parts {
+		val, err := strconv.ParseFloat(part, 64)
+		if err != nil {
+			log.Fatalf("Ошибка парсинга числа: %v", err)
+		}
+		arr[i] = val
+	}
+	return arr
+}
+
+func ThomasAlgorithm(a, b, c, d []float64) []float64 {
+	n := len(d)
+	if n == 0 {
+		return nil
+	}
+	
+	cPrime := make([]float64, n)
+	dPrime := make([]float64, n)
+	x := make([]float64, n)
+	
+	cPrime[0] = c[0] / b[0]
+	dPrime[0] = d[0] / b[0]
+	
+	for i := 1; i < n-1; i++ {
+		denom := b[i] - a[i-1]*cPrime[i-1]
+		cPrime[i] = c[i] / denom
+		dPrime[i] = (d[i] - a[i-1]*dPrime[i-1]) / denom
+	}
+	
+	denom := b[n-1] - a[n-2]*cPrime[n-2]
+	dPrime[n-1] = (d[n-1] - a[n-2]*dPrime[n-2]) / denom
+	
+	x[n-1] = dPrime[n-1]
+	for i := n - 2; i >= 0; i-- {
+		x[i] = dPrime[i] - cPrime[i]*x[i+1]
+	}
+	
+	return x
+}
+
+func (tm *TridiagonalMatrix) InverseTridiagonalParallel() [][]float64 {
+	n := tm.N
+	
+	a := make([]float64, n)
+	b := make([]float64, n)
+	c := make([]float64, n)
+	
+	copy(b, tm.MainDiag)
+	
+	copy(a[1:], tm.SubDiag)
+	
+	copy(c[:n-1], tm.SuperDiag)
+	
+	inv := make([][]float64, n)
+	for i := range inv {
+		inv[i] = make([]float64, n)
+	}
+	
+	numWorkers := runtime.NumCPU()
+	chunkSize := (n + numWorkers - 1) / numWorkers
+	
+	var wg sync.WaitGroup
+	wg.Add(numWorkers)
+	
+	for worker := 0; worker < numWorkers; worker++ {
+		go func(workerID int) {
+			defer wg.Done()
+			
+			startCol := workerID * chunkSize
+			endCol := min(startCol+chunkSize, n)
+			
+			if startCol >= n {
+				return
+			}
+			
+			d := make([]float64, n)
+			
+			for col := startCol; col < endCol; col++ {
+				for i := range d {
+					d[i] = 0.0
+				}
+				d[col] = 1.0
+				
+				column := ThomasAlgorithm(a, b, c, d)
+				
+				for i := 0; i < n; i++ {
+					inv[i][col] = column[i]
+				}
+			}
+		}(worker)
+	}
+	
+	wg.Wait()
+	return inv
+}
+
+func SaveFullMatrix(filename string, matrix [][]float64) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	
+	writer := bufio.NewWriter(file)
+	defer writer.Flush()
+	
+	n := len(matrix)
+	for i := 0; i < n; i++ {
+		for j := 0; j < n; j++ {
+			if j > 0 {
+				writer.WriteString(" ")
+			}
+			fmt.Fprintf(writer, "%.18e", matrix[i][j])
+		}
+		writer.WriteString("\n")
+	}
+	
+	return nil
+}
+
+func VerifyInverse(original *TridiagonalMatrix, inverse [][]float64, epsilon float64) bool {
+	n := original.N
+	
+	for i := 0; i < n; i++ {
+		for j := 0; j < n; j++ {
+			var sum float64
+			
+			for k := 0; k < n; k++ {
+				var val float64
+				if k == i {
+					val = original.MainDiag[i]
+				} else if k == i-1 {
+					val = original.SubDiag[i-1]
+				} else if k == i+1 {
+					val = original.SuperDiag[i]
+				}
+				
+				sum += val * inverse[k][j]
+			}
+			
+			expected := 0.0
+			if i == j {
+				expected = 1.0
+			}
+			
+			if math.Abs(sum-expected) > epsilon {
+				return false
+			}
+		}
+	}
+	
+	return true
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func main() {
+	rand.Seed(time.Now().UnixNano())
+	
+	fmt.Print("Введите размер матрицы: ")
+	var n int
+	_, err := fmt.Scan(&n)
+	if err != nil || n < 2 {
+		log.Fatal("Некорректный размер матрицы")
+	}
+	
+	inputFile := "M.dat"
+	outputFile := "T.dat"
+	
+	start := time.Now()
+	
+	fmt.Println("Генерация трехдиагональной матрицы...")
+	matrix := NewRandomTridiagonal(n)
+	
+	fmt.Printf("Сохранение в файл %s...\n", inputFile)
+	if err := matrix.SaveToFile(inputFile); err != nil {
+		log.Fatalf("Ошибка сохранения: %v", err)
+	}
+	fmt.Printf("Сгенерирована и сохранена %dx%d матрица в %s\n", n, n, inputFile)
+	
+	fmt.Printf("Загрузка из файла %s...\n", inputFile)
+	loadedMatrix, err := LoadFromFile(inputFile)
+	if err != nil {
+		log.Fatalf("Ошибка загрузки: %v", err)
+	}
+	
+	fmt.Println("Вычисление обратной матрицы...")
+	inverse := loadedMatrix.InverseTridiagonalParallel()
+	
+	fmt.Printf("Сохранение обратной матрицы в %s...\n", outputFile)
+	if err := SaveFullMatrix(outputFile, inverse); err != nil {
+		log.Fatalf("Ошибка сохранения: %v", err)
+	}
+	
+	elapsed := time.Since(start)
+	
+	fmt.Println("\n=== Результаты ===")
+	fmt.Printf("Обратная матрица сохранена в %s\n", outputFile)
+	fmt.Printf("Время выполнения: %v\n", elapsed)
+	fmt.Printf("Использовано ядер CPU: %d\n", runtime.NumCPU())
+	
+	fmt.Println("\nПроверка корректности...")
+	if VerifyInverse(loadedMatrix, inverse, 1e-10) {
+		fmt.Println("✓ Обратная матрица вычислена корректно")
+	} else {
+		fmt.Println("⚠ Возможна ошибка в вычислениях")
+	}
+	
+	fmt.Println("\n=== Образец данных ===")
+	fmt.Printf("Размер матрицы: %dx%d\n", n, n)
+	fmt.Printf("Поддиагональ[0]: %.6f\n", loadedMatrix.SubDiag[0])
+	fmt.Printf("Главная диагональ[0]: %.6f\n", loadedMatrix.MainDiag[0])
+	fmt.Printf("Наддиагональ[0]: %.6f\n", loadedMatrix.SuperDiag[0])
+	fmt.Printf("Обратная матрица[0][0]: %.6f\n", inverse[0][0])
+	fmt.Printf("Обратная матрица[%d][%d]: %.6f\n", n-1, n-1, inverse[n-1][n-1])
+}
