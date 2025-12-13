@@ -86,9 +86,9 @@ int main() {
     clock_t start_time, end_time;
     double calc_time, save_time, total_time, xmin = -1.5, xmax = 1.5, ymin = -1.5, ymax = 1.5;
     unsigned char* pixel_data = (unsigned char*)malloc(WIDTH * HEIGHT * 3);
-    int* julia_image = julia_set(xmin, xmax, ymin, ymax);
     int i;
     start_time = clock();
+    int* julia_image = julia_set(xmin, xmax, ymin, ymax);
     end_time = clock();
     calc_time = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
 
@@ -128,4 +128,5 @@ int main() {
     free(pixel_data);
     free(julia_image);
     return 0;
+
 }
