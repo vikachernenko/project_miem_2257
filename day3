@@ -14,9 +14,7 @@ import (
 	"time"
 )
 
-
 func calculateFractal(name string, w, h, maxIter int, jc complex128) [][]int {
-	fmt.Printf("Calculating data for %s (%d x %d)...\n", name, w, h)
 	iterations := make([][]int, h)
 	for i := range iterations {
 		iterations[i] = make([]int, w)
@@ -28,7 +26,7 @@ func calculateFractal(name string, w, h, maxIter int, jc complex128) [][]int {
 		xmin, xmax, ymin, ymax = -1.6, 1.6, -1.2, 1.2
 	case "bship":
 		xmin, xmax, ymin, ymax = -2.2, 1.2, -2.0, 1.0
-	default: // mandelbrot
+	default:
 		xmin, xmax, ymin, ymax = -2.0, 1.0, -1.2, 1.2
 	}
 
@@ -39,7 +37,7 @@ func calculateFractal(name string, w, h, maxIter int, jc complex128) [][]int {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			for py := workerID; py < h; py += numWorkers { 
+			for py := workerID; py < h; py += numWorkers {
 				for px := 0; px < w; px++ {
 					c := complex(
 						xmin+(float64(px)/float64(w))*(xmax-xmin),
@@ -59,7 +57,7 @@ func calculateFractal(name string, w, h, maxIter int, jc complex128) [][]int {
 							n = maxIter
 						}
 					case "julia":
-						z := c // Для Жюлиа
+						z := c
 						for i := 0; i < maxIter; i++ {
 							if cmplx.Abs(z) > 2 {
 								n = i
@@ -101,7 +99,7 @@ func renderAndSave(data [][]int, palette []color.Color, filename string) error {
 			if iterations >= maxIter {
 				img.Set(px, py, color.Black)
 			} else {
-				img.Set(px, py, palette[iterations]) 
+				img.Set(px, py, palette[iterations])
 			}
 		}
 	}
@@ -113,7 +111,6 @@ func renderAndSave(data [][]int, palette []color.Color, filename string) error {
 	defer file.Close()
 	return png.Encode(file, img)
 }
-
 
 func openImage(path string) {
 	var cmd *exec.Cmd
@@ -130,13 +127,13 @@ func openImage(path string) {
 
 func main() {
 	const w, h = 1024, 768
-	const maxIter = 500 
+	const maxIter = 500
 	const jc = complex(-0.7, 0.27015)
 
 	palette := make([]color.Color, maxIter+1)
 	for i := 0; i < maxIter; i++ {
 		t := float64(i) / float64(maxIter)
-		r := uint8(100*t + float64(i)*0.5)
+		r := uint8(math.Mod(100*t+float64(i)*0.5, 256))
 		g := uint8(100 * t)
 		b := uint8(100*(1-t) + 200*t)
 		palette[i] = color.RGBA{r, g, b, 255}
@@ -144,22 +141,35 @@ func main() {
 
 	fractalNames := []string{"mandelbrot", "julia", "bship"}
 
+	fmt.Println("Starting Fractal Generation...")
+	fmt.Println("========================================")
+
 	for _, name := range fractalNames {
-		start := time.Now()
-
-		iterationData := calculateFractal(name, w, h, maxIter, jc)
-
 		filename := name + ".png"
+		fmt.Printf("Processing: %-12s [%dx%d]\n", name, w, h)
+
+		startCalc := time.Now()
+		iterationData := calculateFractal(name, w, h, maxIter, jc)
+		durCalc := time.Since(startCalc)
+
+		startSave := time.Now()
 		err := renderAndSave(iterationData, palette, filename)
+		durSave := time.Since(startSave)
+
 		if err != nil {
-			fmt.Printf("Error saving %s: %v\n", filename, err)
+			fmt.Printf("  Error saving %s: %v\n", filename, err)
 			continue
 		}
 
-		elapsed := time.Since(start)
-		fmt.Printf("Successfully created %s in %s\n\n", filename, elapsed)
+		totalTime := durCalc + durSave
+		
+		fmt.Printf("  ├─ Calculation: %v\n", durCalc)
+		fmt.Printf("  ├─ Save/Render: %v\n", durSave)
+		fmt.Printf("  └─ Total:       %v\n", totalTime)
+		fmt.Println("----------------------------------------")
+
 		openImage(filename)
 	}
 
-	fmt.Println("All fractals generated!")
+	fmt.Println("All tasks completed.")
 }
