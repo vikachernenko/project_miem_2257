@@ -1,0 +1,197 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"math"
+	"math/rand"
+	"os"
+	"runtime"
+	"sync"
+	"time"
+)
+
+const (
+	n      = 1024
+	low    = 0.0
+	high   = 100.0
+)
+
+type Matrix [][]float64
+
+func NewMatrix(rows, cols int) Matrix {
+	m := make(Matrix, rows)
+	for i := range m {
+		m[i] = make([]float64, cols)
+	}
+	return m
+}
+
+func (m Matrix) RandomMatrix() {
+	rows := len(m)
+	if rows == 0 {
+		return
+	}
+	cols := len(m[0])
+	
+	for i := 0; i < rows; i++ {
+		for j := 0; j < cols; j++ {
+			m[i][j] = low + rand.Float64()*(high-low)
+		}
+	}
+}
+
+func AddMatricesParallel(M1, M2 Matrix) Matrix {
+	rows := len(M1)
+	cols := len(M1[0])
+	result := NewMatrix(rows, cols)
+	
+	numWorkers := runtime.NumCPU()
+	if numWorkers < 1 {
+		numWorkers = 1
+	}
+	chunkSize := (rows + numWorkers - 1) / numWorkers 
+	
+	var wg sync.WaitGroup
+	wg.Add(numWorkers)
+	
+	for worker := 0; worker < numWorkers; worker++ {
+		go func(workerID int) {
+			defer wg.Done()
+			
+			startRow := workerID * chunkSize
+			endRow := min(startRow+chunkSize, rows)
+			
+			if startRow >= rows {
+				return
+			}
+			
+			for i := startRow; i < endRow; i++ {
+				for j := 0; j < cols; j++ {
+					val := M1[i][j] + M2[i][j]
+					
+					
+					if math.IsNaN(val) || math.IsInf(val, 0) {
+						log.Printf("Warning: Invalid value at position [%d][%d] in chunk %d", i, j, workerID)
+						val = 0.0
+					}
+					
+					result[i][j] = val
+				}
+			}
+		}(worker)
+	}
+	
+	wg.Wait()
+	return result
+}
+
+
+func ValidateMatrices(M1, M2 Matrix) error {
+	rows1 := len(M1)
+	if rows1 == 0 {
+		return fmt.Errorf("M1 is empty")
+	}
+	cols1 := len(M1[0])
+	
+	rows2 := len(M2)
+	if rows2 == 0 {
+		return fmt.Errorf("M2 is empty")
+	}
+	cols2 := len(M2[0])
+	
+	if rows1 != n || cols1 != n || rows2 != n || cols2 != n {
+		return fmt.Errorf("matrices must be %d x %d, got %dx%d and %dx%d", n, n, rows1, cols1, rows2, cols2)
+	}
+	
+
+	for i := 0; i < n; i++ {
+		for j := 0; j < n; j++ {
+			if math.IsNaN(M1[i][j]) || math.IsInf(M1[i][j], 0) || 
+			   math.IsNaN(M2[i][j]) || math.IsInf(M2[i][j], 0) {
+				return fmt.Errorf("input matrices contain invalid values (NaN or Inf) at [%d][%d]", i, j)
+			}
+		}
+	}
+	
+	return nil
+}
+
+func SaveMatrix(filename string, m Matrix) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	
+	rows := len(m)
+	if rows == 0 {
+		return fmt.Errorf("matrix is empty")
+	}
+	cols := len(m[0])
+	
+	for i := 0; i < rows; i++ {
+		for j := 0; j < cols; j++ {
+			if j > 0 {
+				fmt.Fprint(file, " ")
+			}
+			fmt.Fprintf(file, "%.18e", m[i][j])
+		}
+		fmt.Fprintln(file)
+	}
+	
+	return nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func main() {
+	startTime := time.Now()
+	
+	source := rand.NewSource(time.Now().UnixNano())
+	rng := rand.New(source)
+	
+	fmt.Println("Generating random matrices...")
+	M1 := NewMatrix(n, n)
+	M2 := NewMatrix(n, n)
+	
+	for i := 0; i < n; i++ {
+		for j := 0; j < n; j++ {
+			M1[i][j] = low + rng.Float64()*(high-low)
+			M2[i][j] = low + rng.Float64()*(high-low)
+		}
+	}
+	
+	fmt.Println("Validating matrices...")
+	if err := ValidateMatrices(M1, M2); err != nil {
+		log.Fatalf("Validation error: %v", err)
+	}
+	
+	numCores := runtime.NumCPU()
+	fmt.Printf("Starting parallel matrix addition using %d CPU cores...\n", numCores)
+	
+	result := AddMatricesParallel(M1, M2)
+	
+	fmt.Println("Saving result to file...")
+	if err := SaveMatrix("M3.dat", result); err != nil {
+		log.Fatalf("Failed to save result: %v", err)
+	}
+	
+	executionTime := time.Since(startTime)
+	
+	fmt.Println("\n=== Results ===")
+	fmt.Println("Operation completed successfully")
+	fmt.Printf("Result saved to: M3.dat\n")
+	fmt.Printf("Matrix size: %d x %d\n", n, n)
+	fmt.Printf("Number of CPU cores used: %d\n", numCores)
+	fmt.Printf("Execution time: %v\n", executionTime)
+	
+	fmt.Println("\n=== Verification ===")
+	fmt.Printf("Sample from result[0][0]: %.6f\n", result[0][0])
+	fmt.Printf("Expected (M1[0][0] + M2[0][0]): %.6f\n", M1[0][0]+M2[0][0])
+}
