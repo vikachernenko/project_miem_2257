@@ -1,0 +1,121 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"math/rand"
+	"os"
+	"runtime"
+	"sync"
+	"time"
+)
+
+type Matrix [][]float64
+
+func main() {
+
+	n := 1024 
+	
+	fmt.Printf("Размер матрицы: %d x %d\n", n, n)
+	start := time.Now()
+
+	M1 := NewRandomMatrix(n, 0, 100)
+	M2 := NewRandomMatrix(n, 0, 100)
+
+	M3 := MultiplyMatricesParallel(M1, M2)
+
+	if err := SaveMatrix("M3_parallel.dat", M3); err != nil {
+		log.Fatalf("Ошибка: %v", err)
+	}
+
+	elapsed := time.Since(start)
+	fmt.Printf("Параллельное умножение завершено\n")
+	fmt.Printf("Execution time = %v\n", elapsed)
+	fmt.Printf("Использовано ядер: %d\n", runtime.NumCPU())
+}
+
+func NewRandomMatrix(n int, low, high float64) Matrix {
+	matrix := make(Matrix, n)
+	for i := range matrix {
+		matrix[i] = make([]float64, n)
+		for j := range matrix[i] {
+			matrix[i][j] = low + rand.Float64()*(high-low)
+		}
+	}
+	return matrix
+}
+
+func MultiplyMatricesParallel(A, B Matrix) Matrix {
+	n := len(A)
+	m := len(B[0])
+	p := len(B)
+	
+	result := NewMatrix(n, m)
+	
+	numWorkers := runtime.NumCPU()
+	chunkSize := (n + numWorkers - 1) / numWorkers
+	
+	var wg sync.WaitGroup
+	wg.Add(numWorkers)
+	
+	for worker := 0; worker < numWorkers; worker++ {
+		go func(workerID int) {
+			defer wg.Done()
+			
+			startRow := workerID * chunkSize
+			endRow := min(startRow+chunkSize, n)
+			
+			if startRow >= n {
+				return
+			}
+			
+			for i := startRow; i < endRow; i++ {
+				for j := 0; j < m; j++ {
+					var sum float64
+					for k := 0; k < p; k++ {
+						sum += A[i][k] * B[k][j]
+					}
+					result[i][j] = sum
+				}
+			}
+		}(worker)
+	}
+	
+	wg.Wait()
+	return result
+}
+
+func NewMatrix(rows, cols int) Matrix {
+	m := make(Matrix, rows)
+	for i := range m {
+		m[i] = make([]float64, cols)
+	}
+	return m
+}
+
+func SaveMatrix(filename string, m Matrix) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	
+	for i := range m {
+		for j := range m[i] {
+			if j > 0 {
+				fmt.Fprint(file, " ")
+			}
+			fmt.Fprintf(file, "%.18e", m[i][j])
+		}
+		fmt.Fprintln(file)
+	}
+	
+	return nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
