@@ -3,11 +3,7 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
-	"image"
-	"image/color"
-	"image/png"
 	"log"
-	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -21,14 +17,22 @@ type BinData struct {
 }
 
 func main() {
+	// Чтение данных
 	bins, err := readHistogramData("histogram_2d.csv")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	createSimpleHistogramImage(bins, "simple_histogram.png")
-	
-	createTextReport(bins, "report.txt")
+	fmt.Printf("Прочитано %d бинов\n", len(bins))
+
+	// Анализ
+	printAnalysis(bins)
+
+	// Текстовая гистограмма
+	printConsoleHistogram(bins, 60)
+
+	// Создание HTML гистограммы
+	createHTMLHistogram(bins, "histogram.html")
 }
 
 func readHistogramData(filename string) ([]BinData, error) {
@@ -45,6 +49,7 @@ func readHistogramData(filename string) ([]BinData, error) {
 	}
 
 	var bins []BinData
+
 	for i := 1; i < len(records); i++ {
 		if len(records[i]) < 4 {
 			continue
@@ -66,154 +71,10 @@ func readHistogramData(filename string) ([]BinData, error) {
 	return bins, nil
 }
 
-func createSimpleHistogramImage(bins []BinData, filename string) {
-	width, height := 800, 600
-	margin := 50
-	
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
-			img.Set(x, y, color.White)
-		}
-	}
-	
-	displayBins := len(bins) - 1
-	if displayBins < 1 {
-		displayBins = len(bins)
-	}
-	
-	maxCount := 0
-	total := 0
-	for i := 0; i < displayBins; i++ {
-		if bins[i].Count > maxCount {
-			maxCount = bins[i].Count
-		}
-		total += bins[i].Count
-	}
-	
-	drawLine(img, margin, margin, margin, height-margin, color.Black)       // Y ось
-	drawLine(img, margin, height-margin, width-margin, height-margin, color.Black) // X ось
-	
-	barWidth := (width - 2*margin) / displayBins
-	if barWidth < 1 {
-		barWidth = 1
-	}
-	
-	for i := 0; i < displayBins; i++ {
-		if bins[i].Count == 0 {
-			continue
-		}
-		
-		barHeight := int(float64(bins[i].Count) / float64(maxCount) * float64(height-2*margin-20))
-		
-		x1 := margin + i*barWidth
-		x2 := x1 + barWidth - 1
-		y1 := height - margin - barHeight
-		y2 := height - margin - 1
-		
-		blueValue := uint8(100 + (155 * i / displayBins))
-		barColor := color.RGBA{R: 30, G: 144, B: blueValue, A: 255}
-		
-		for x := x1; x <= x2; x++ {
-			for y := y1; y <= y2; y++ {
-				if x >= 0 && x < width && y >= 0 && y < height {
-					img.Set(x, y, barColor)
-				}
-			}
-		}
-		
-		drawRectangle(img, x1, y1, x2, y2, color.RGBA{R: 0, G: 0, B: 0, A: 255})
-	}
-	
-	drawText(img, width/2, height-10, "Расстояние R", color.Black)
-	drawText(img, 10, height/2, "Количество", color.Black)
-	
-	title := "1D Random Walk – распределение конечных позиций"
-	drawText(img, width/2, 20, title, color.RGBA{R: 0, G: 0, B: 139, A: 255})
-	
-	stats := fmt.Sprintf("Всего случаев: %d | Макс. частота: %d", total, maxCount)
-	drawText(img, width/2, 40, stats, color.RGBA{R: 139, G: 0, B: 0, A: 255})
-	
-	file, err := os.Create(filename)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-	
-	if err := png.Encode(file, img); err != nil {
-		log.Fatal(err)
-	}
-	
-	fmt.Printf("Гистограмма сохранена в: %s\n", filename)
-}
+func printAnalysis(bins []BinData) {
+	fmt.Println("АНАЛИЗ ДАННЫХ ГИСТОГРАММЫ")
+	fmt.Println(strings.Repeat("=", 60))
 
-func drawLine(img *image.RGBA, x1, y1, x2, y2 int, c color.Color) {
-	dx := abs(x2 - x1)
-	dy := abs(y2 - y1)
-	sx, sy := 1, 1
-	
-	if x1 > x2 {
-		sx = -1
-	}
-	if y1 > y2 {
-		sy = -1
-	}
-	
-	err := dx - dy
-	
-	for {
-		img.Set(x1, y1, c)
-		if x1 == x2 && y1 == y2 {
-			break
-		}
-		
-		e2 := 2 * err
-		if e2 > -dy {
-			err -= dy
-			x1 += sx
-		}
-		if e2 < dx {
-			err += dx
-			y1 += sy
-		}
-	}
-}
-
-func drawRectangle(img *image.RGBA, x1, y1, x2, y2 int, c color.Color) {
-	drawLine(img, x1, y1, x2, y1, c) 
-	drawLine(img, x1, y2, x2, y2, c) 
-	drawLine(img, x1, y1, x1, y2, c) 
-	drawLine(img, x2, y1, x2, y2, c) 
-}
-
-func drawText(img *image.RGBA, x, y int, text string, c color.Color) {	for i, ch := range text {
-		if ch != ' ' {
-			img.Set(x+i*6, y, c)
-			img.Set(x+i*6+1, y, c)
-			img.Set(x+i*6, y+1, c)
-			img.Set(x+i*6+1, y+1, c)
-		}
-	}
-}
-
-func abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
-
-func createTextReport(bins []BinData, filename string) {
-	file, err := os.Create(filename)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-	
-	file.WriteString("ОТЧЕТ ПО ГИСТОГРАММЕ 1D RANDOM WALK\n")
-	file.WriteString(strings.Repeat("=", 50) + "\n\n")
-	
 	total := 0
 	maxCount := 0
 	emptyBins := 0
@@ -227,47 +88,300 @@ func createTextReport(bins []BinData, filename string) {
 			emptyBins++
 		}
 	}
-	
-	file.WriteString("ОБЩАЯ СТАТИСТИКА:\n")
-	file.WriteString(strings.Repeat("-", 30) + "\n")
-	file.WriteString(fmt.Sprintf("Всего случаев: %d\n", total))
-	file.WriteString(fmt.Sprintf("Количество бинов: %d\n", len(bins)))
-	file.WriteString(fmt.Sprintf("Пустых бинов: %d\n", emptyBins))
-	file.WriteString(fmt.Sprintf("Максимальная частота: %d\n", maxCount))
-	
-	file.WriteString("\nДАННЫЕ ГИСТОГРАММЫ:\n")
-	file.WriteString(strings.Repeat("-", 70) + "\n")
-	file.WriteString(fmt.Sprintf("%-6s %-12s %-12s %-12s %-12s\n", 
-		"Бин", "R_min", "R_max", "Кол-во", "Доля %"))
-	
-	for _, bin := range bins {
-		percentage := float64(bin.Count) / float64(total) * 100
-		file.WriteString(fmt.Sprintf("%-6d %-12.4f %-12.4f %-12d %-12.2f\n",
-			bin.Bin, bin.RMin, bin.RMax, bin.Count, percentage))
-	}
-	
-з
-	file.WriteString("\nАНАЛИЗ ДАННЫХ:\n")
-	file.WriteString(strings.Repeat("-", 30) + "\n")
 
+	fmt.Printf("Всего точек: %d\n", total)
+	fmt.Printf("Количество бинов: %d\n", len(bins))
+	fmt.Printf("Пустых бинов: %d\n", emptyBins)
+	fmt.Printf("Максимальное значение: %d\n", maxCount)
+	
+	// Аномалии
+	fmt.Println("\nОСОБЕННОСТИ ДАННЫХ:")
+	
+	// 1. Последний бин
+	lastBin := bins[len(bins)-1]
+	lastPercentage := float64(lastBin.Count) / float64(total) * 100
+	fmt.Printf("1. Последний бин %d содержит %d точек (%.1f%% от общего)\n", 
+		lastBin.Bin, lastBin.Count, lastPercentage)
+	
+	// 2. Чередование пустых/непустых бинов
+	alternating := 0
+	for i := 1; i < len(bins)-1; i++ {
+		if bins[i].Count == 0 && bins[i-1].Count > 0 && bins[i+1].Count > 0 {
+			alternating++
+		}
+	}
+	fmt.Printf("2. Чередование: %d пустых бинов между заполненными\n", alternating)
+	
+	// 3. Распределение по квантилям
+	fmt.Println("\nРАСПРЕДЕЛЕНИЕ ТОЧЕК ПО БИНАМ:")
 	cumulative := 0
-	for _, bin := range bins {
+	for i, bin := range bins {
 		cumulative += bin.Count
 		percentage := float64(cumulative) / float64(total) * 100
 		
-		if math.Abs(percentage-25) < 2 {
-			file.WriteString(fmt.Sprintf("25%% случаев: R ≤ %.3f\n", bin.RMax))
+		if percentage >= 25 && percentage <= 26 {
+			fmt.Printf("  • 25%% точек: R ≤ %.2f (бин %d)\n", bin.RMax, bin.Bin)
 		}
-		if math.Abs(percentage-50) < 2 {
-			file.WriteString(fmt.Sprintf("Медиана (50%%): R ≤ %.3f\n", bin.RMax))
+		if percentage >= 50 && percentage <= 51 {
+			fmt.Printf("  • 50%% точек: R ≤ %.2f (бин %d)\n", bin.RMax, bin.Bin)
 		}
-		if math.Abs(percentage-75) < 2 {
-			file.WriteString(fmt.Sprintf("75%% случаев: R ≤ %.3f\n", bin.RMax))
+		if percentage >= 75 && percentage <= 76 {
+			fmt.Printf("  • 75%% точек: R ≤ %.2f (бин %d)\n", bin.RMax, bin.Bin)
 		}
-		if math.Abs(percentage-90) < 2 {
-			file.WriteString(fmt.Sprintf("90%% случаев: R ≤ %.3f\n", bin.RMax))
+		if percentage >= 90 && percentage <= 91 {
+			fmt.Printf("  • 90%% точек: R ≤ %.2f (бин %d)\n", bin.RMax, bin.Bin)
+		}
+		if i == len(bins)-2 { // предпоследний бин
+			prevPercentage := float64(cumulative-bin.Count) / float64(total) * 100
+			fmt.Printf("  • До последнего бина: %.1f%% точек\n", prevPercentage)
 		}
 	}
-	
-	fmt.Printf("Текстовый отчет сохранен в: %s\n", filename)
+}
+
+func printConsoleHistogram(bins []BinData, width int) {
+	fmt.Println("\n" + strings.Repeat("═", 80))
+	fmt.Println("КОНСОЛЬНАЯ ГИСТОГРАММА")
+	fmt.Println(strings.Repeat("═", 80))
+
+	// Исключаем последний бин для масштабирования
+	maxCount := 0
+	for i := 0; i < len(bins)-1; i++ {
+		if bins[i].Count > maxCount {
+			maxCount = bins[i].Count
+		}
+	}
+
+	// Выводим первые 50 бинов (до аномального)
+	displayCount := 50
+	if len(bins) < displayCount {
+		displayCount = len(bins) - 1
+	}
+
+	for i := 0; i < displayCount; i++ {
+		bin := bins[i]
+		
+		if bin.Count == 0 {
+			fmt.Printf("[%3d] %6.3f - %6.3f | %-*s | %7d (ПУСТОЙ)\n",
+				bin.Bin, bin.RMin, bin.RMax,
+				width, "", bin.Count)
+			continue
+		}
+
+		// Масштабирование
+		scaled := int(float64(bin.Count) / float64(maxCount) * float64(width))
+		
+		// График
+		bar := strings.Repeat("█", scaled)
+		if scaled == 0 && bin.Count > 0 {
+			bar = "▌"
+		}
+
+		// Проценты
+		totalWithoutLast := 0
+		for j := 0; j < len(bins)-1; j++ {
+			totalWithoutLast += bins[j].Count
+		}
+		percentage := float64(bin.Count) / float64(totalWithoutLast) * 100
+
+		fmt.Printf("[%3d] %6.3f - %6.3f | %-*s | %7d (%5.1f%%)\n",
+			bin.Bin, bin.RMin, bin.RMax,
+			width, bar, bin.Count, percentage)
+	}
+
+	// Последний бин отдельно
+	if len(bins) > 0 {
+		lastBin := bins[len(bins)-1]
+		fmt.Println("\n" + strings.Repeat("─", 80))
+		fmt.Printf("БИН %d (АНОМАЛЬНЫЙ): [%.3f-%.3f] = %d точек\n",
+			lastBin.Bin, lastBin.RMin, lastBin.RMax, lastBin.Count)
+		
+		totalAll := 0
+		for _, bin := range bins {
+			totalAll += bin.Count
+		}
+		percentage := float64(lastBin.Count) / float64(totalAll) * 100
+		fmt.Printf("Это составляет %.1f%% от всех %d точек\n", percentage, totalAll)
+	}
+}
+
+func createHTMLHistogram(bins []BinData, filename string) {
+	file, err := os.Create(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	// Находим максимум для масштабирования (без последнего бина)
+	maxCount := 0
+	for i := 0; i < len(bins)-1; i++ {
+		if bins[i].Count > maxCount {
+			maxCount = bins[i].Count
+		}
+	}
+
+	// Подсчет общего количества
+	total := 0
+	for _, bin := range bins {
+		total += bin.Count
+	}
+
+	// Генерация HTML
+	html := `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Гистограмма распределения расстояний</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .stats {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .histogram-container {
+            margin: 30px 0;
+        }
+        .bin {
+            display: inline-block;
+            vertical-align: bottom;
+            margin: 0 1px;
+            text-align: center;
+            position: relative;
+        }
+        .bar {
+            width: 8px;
+            background: #4CAF50;
+            border-radius: 3px 3px 0 0;
+            transition: background 0.3s;
+        }
+        .bar:hover {
+            background: #45a049;
+        }
+        .bin-label {
+            font-size: 10px;
+            transform: rotate(-45deg);
+            transform-origin: left top;
+            position: absolute;
+            left: 0;
+            top: 100%;
+            white-space: nowrap;
+        }
+        .bin-value {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .legend {
+            margin-top: 40px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        .highlight {
+            background: #ffeb3b;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Гистограмма распределения расстояний R</h1>
+        
+        <div class="stats">
+            <h3>Статистика:</h3>
+            <p>Всего точек: ` + fmt.Sprintf("%d", total) + `</p>
+            <p>Количество бинов: ` + fmt.Sprintf("%d", len(bins)) + `</p>
+            <p>Максимальное значение в бине: ` + fmt.Sprintf("%d", maxCount) + `</p>
+        </div>
+        
+        <div class="histogram-container">
+            <h3>Распределение (первые 50 бинов):</h3>
+            <div style="height: 400px; border-left: 2px solid #333; border-bottom: 2px solid #333; padding: 0 20px;">`
+
+	// Добавляем первые 50 бинов
+	displayCount := 50
+	if len(bins)-1 < displayCount {
+		displayCount = len(bins) - 1
+	}
+
+	for i := 0; i < displayCount; i++ {
+		bin := bins[i]
+		height := 0.0
+		if maxCount > 0 {
+			height = float64(bin.Count) / float64(maxCount) * 380
+		}
+		
+		color := "#4CAF50"
+		if bin.Count == 0 {
+			color = "#cccccc"
+		}
+		
+		percentage := float64(bin.Count) / float64(total) * 100
+		
+		html += fmt.Sprintf(`
+                <div class="bin" style="height: 400px;" title="Бин %d: %.3f-%.3f
+Количество: %d
+Доля: %.2f%%">
+                    <div class="bar" style="height: %.1fpx; background: %s;"></div>
+                    <div class="bin-label">%d</div>
+                    <div class="bin-value">%d</div>
+                </div>`,
+			bin.Bin, bin.RMin, bin.RMax, bin.Count, percentage,
+			height, color, bin.Bin, bin.Count)
+	}
+
+	html += `
+            </div>
+        </div>
+        
+        <div class="legend">
+            <h3>Особенности данных:</h3>
+            <ul>
+                <li>Каждый второй бин пустой (0 точек) - явное чередование</li>
+                <li>Последний бин <span class="highlight">` + fmt.Sprintf("%d", bins[len(bins)-1].Bin) + `</span> 
+                    содержит <span class="highlight">` + fmt.Sprintf("%d", bins[len(bins)-1].Count) + `</span> точек 
+                    (<span class="highlight">` + fmt.Sprintf("%.1f", float64(bins[len(bins)-1].Count)/float64(total)*100) + `%%</span> от общего)</li>
+                <li>Максимальное расстояние R: ` + fmt.Sprintf("%.2f", bins[len(bins)-1].RMax) + `</li>
+            </ul>
+        </div>
+        
+        <script>
+            // Добавляем обработчики для всплывающих подсказок
+            document.querySelectorAll('.bin').forEach(bin => {
+                bin.addEventListener('mouseover', function(e) {
+                    this.style.opacity = '0.8';
+                });
+                bin.addEventListener('mouseout', function(e) {
+                    this.style.opacity = '1';
+                });
+            });
+        </script>
+    </div>
+</body>
+</html>`
+
+	file.WriteString(html)
+	fmt.Printf("\nHTML гистограмма сохранена в: %s\n", filename)
+	fmt.Println("Откройте этот файл в браузере для просмотра")
 }
