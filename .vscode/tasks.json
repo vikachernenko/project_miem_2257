@@ -1,27 +1,33 @@
 {
+    "version": "2.0.0",
     "tasks": [
         {
             "type": "cppbuild",
-            "label": "C/C++: g++ build (WSL)",
+            "label": "Universal Super-Build (Ryzen 5600H)",
             "command": "/usr/bin/g++",
             "args": [
                 "-fdiagnostics-color=always",
-                "-g",
+                "-O3",                   
+                "-march=native",         
+                "-fopenmp",              
+                "-funroll-loops",        
+                "-std=c++17",            
                 "${file}",
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}",
-                "-mavx",
-                "-O3"
+                "-lopenblas"             
             ],
             "options": {
                 "cwd": "${fileDirname}"
             },
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "group": {
                 "kind": "build",
                 "isDefault": true
-            }
+            },
+            "detail": "Сборка для Фракталов, Матриц и Random Walk с AVX2 и OpenMP"
         }
-    ],
-    "version": "2.0.0"
+    ]
 }
