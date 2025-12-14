@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Гистограмма распределения конечных позиций</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .stats {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2980b9;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        .histogram {
+            height: 500px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            border-bottom: 2px solid #34495e;
+            border-left: 2px solid #34495e;
+            padding: 0 20px;
+            margin: 30px 0;
+            position: relative;
+        }
+        .bar {
+            flex: 1;
+            margin: 0 1px;
+            background: linear-gradient(to top, #3498db, #2980b9);
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .bar:hover {
+            opacity: 0.8;
+            transform: scaleY(1.05);
+        }
+        .bar-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%) rotate(-45deg);
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        .bar-value {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .axis-label {
+            position: absolute;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .x-axis {
+            bottom: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .y-axis {
+            left: -40px;
+            top: 50%;
+            transform: translateY(-50%) rotate(-90deg);
+        }
+        .tooltip {
+            position: fixed;
+            background: rgba(44, 62, 80, 0.95);
+            color: white;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            display: none;
+            z-index: 1000;
+            pointer-events: none;
+            min-width: 200px;
+        }
+        .normal-curve {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .normal-line {
+            fill: none;
+            stroke: #e74c3c;
+            stroke-width: 2;
+            stroke-dasharray: 5,5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Распределение конечных позиций 1D Random Walk</h1>
+        
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-value">2000000</div>
+                <div class="stat-label">Всего случаев</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">-0.00</div>
+                <div class="stat-label">Средняя позиция</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">14.13</div>
+                <div class="stat-label">Стандартное отклонение</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">68</div>
+                <div class="stat-label">Позиций в гистограмме</div>
+            </div>
+        </div>
+        
+        <div class="histogram" id="histogram">
+            <div class="bar" 
+                 style="height: 0.0%" 
+                 data-position="-68" 
+                 data-count="2" 
+                 data-percent="0.00">
+                <div class="bar-value">2</div>
+                <div class="bar-label">-68</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.0%" 
+                 data-position="-66" 
+                 data-count="3" 
+                 data-percent="0.00">
+                <div class="bar-value">3</div>
+                <div class="bar-label">-66</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.0%" 
+                 data-position="-64" 
+                 data-count="2" 
+                 data-percent="0.00">
+                <div class="bar-value">2</div>
+                <div class="bar-label">-64</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.0%" 
+                 data-position="-62" 
+                 data-count="2" 
+                 data-percent="0.00">
+                <div class="bar-value">2</div>
+                <div class="bar-label">-62</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.0%" 
+                 data-position="-60" 
+                 data-count="13" 
+                 data-percent="0.00">
+                <div class="bar-value">13</div>
+                <div class="bar-label">-60</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.0%" 
+                 data-position="-58" 
+                 data-count="29" 
+                 data-percent="0.00">
+                <div class="bar-value">29</div>
+                <div class="bar-label">-58</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.0%" 
+                 data-position="-56" 
+                 data-count="36" 
+                 data-percent="0.00">
+                <div class="bar-value">36</div>
+                <div class="bar-label">-56</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.1%" 
+                 data-position="-54" 
+                 data-count="64" 
+                 data-percent="0.00">
+                <div class="bar-value">64</div>
+                <div class="bar-label">-54</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.1%" 
+                 data-position="-52" 
+                 data-count="117" 
+                 data-percent="0.01">
+                <div class="bar-value">117</div>
+                <div class="bar-label">-52</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.2%" 
+                 data-position="-50" 
+                 data-count="229" 
+                 data-percent="0.01">
+                <div class="bar-value">229</div>
+                <div class="bar-label">-50</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.3%" 
+                 data-position="-48" 
+                 data-count="355" 
+                 data-percent="0.02">
+                <div class="bar-value">355</div>
+                <div class="bar-label">-48</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.5%" 
+                 data-position="-46" 
+                 data-count="552" 
+                 data-percent="0.03">
+                <div class="bar-value">552</div>
+                <div class="bar-label">-46</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.8%" 
+                 data-position="-44" 
+                 data-count="872" 
+                 data-percent="0.04">
+                <div class="bar-value">872</div>
+                <div class="bar-label">-44</div>
+            </div>
+            <div class="bar" 
+                 style="height: 1.2%" 
+                 data-position="-42" 
+                 data-count="1378" 
+                 data-percent="0.07">
+                <div class="bar-value">1378</div>
+                <div class="bar-label">-42</div>
+            </div>
+            <div class="bar" 
+                 style="height: 1.9%" 
+                 data-position="-40" 
+                 data-count="2104" 
+                 data-percent="0.11">
+                <div class="bar-value">2104</div>
+                <div class="bar-label">-40</div>
+            </div>
+            <div class="bar" 
+                 style="height: 2.7%" 
+                 data-position="-38" 
+                 data-count="3015" 
+                 data-percent="0.15">
+                <div class="bar-value">3015</div>
+                <div class="bar-label">-38</div>
+            </div>
+            <div class="bar" 
+                 style="height: 4.0%" 
+                 data-position="-36" 
+                 data-count="4500" 
+                 data-percent="0.22">
+                <div class="bar-value">4500</div>
+                <div class="bar-label">-36</div>
+            </div>
+            <div class="bar" 
+                 style="height: 5.5%" 
+                 data-position="-34" 
+                 data-count="6199" 
+                 data-percent="0.31">
+                <div class="bar-value">6199</div>
+                <div class="bar-label">-34</div>
+            </div>
+            <div class="bar" 
+                 style="height: 7.7%" 
+                 data-position="-32" 
+                 data-count="8703" 
+                 data-percent="0.44">
+                <div class="bar-value">8703</div>
+                <div class="bar-label">-32</div>
+            </div>
+            <div class="bar" 
+                 style="height: 10.6%" 
+                 data-position="-30" 
+                 data-count="11997" 
+                 data-percent="0.60">
+                <div class="bar-value">11997</div>
+                <div class="bar-label">-30</div>
+            </div>
+            <div class="bar" 
+                 style="height: 14.1%" 
+                 data-position="-28" 
+                 data-count="15887" 
+                 data-percent="0.79">
+                <div class="bar-value">15887</div>
+                <div class="bar-label">-28</div>
+            </div>
+            <div class="bar" 
+                 style="height: 18.5%" 
+                 data-position="-26" 
+                 data-count="20827" 
+                 data-percent="1.04">
+                <div class="bar-value">20827</div>
+                <div class="bar-label">-26</div>
+            </div>
+            <div class="bar" 
+                 style="height: 23.9%" 
+                 data-position="-24" 
+                 data-count="26982" 
+                 data-percent="1.35">
+                <div class="bar-value">26982</div>
+                <div class="bar-label">-24</div>
+            </div>
+            <div class="bar" 
+                 style="height: 29.7%" 
+                 data-position="-22" 
+                 data-count="33525" 
+                 data-percent="1.68">
+                <div class="bar-value">33525</div>
+                <div class="bar-label">-22</div>
+            </div>
+            <div class="bar" 
+                 style="height: 37.1%" 
+                 data-position="-20" 
+                 data-count="41849" 
+                 data-percent="2.09">
+                <div class="bar-value">41849</div>
+                <div class="bar-label">-20</div>
+            </div>
+            <div class="bar" 
+                 style="height: 44.2%" 
+                 data-position="-18" 
+                 data-count="49807" 
+                 data-percent="2.49">
+                <div class="bar-value">49807</div>
+                <div class="bar-label">-18</div>
+            </div>
+            <div class="bar" 
+                 style="height: 52.7%" 
+                 data-position="-16" 
+                 data-count="59419" 
+                 data-percent="2.97">
+                <div class="bar-value">59419</div>
+                <div class="bar-label">-16</div>
+            </div>
+            <div class="bar" 
+                 style="height: 61.0%" 
+                 data-position="-14" 
+                 data-count="68771" 
+                 data-percent="3.44">
+                <div class="bar-value">68771</div>
+                <div class="bar-label">-14</div>
+            </div>
+            <div class="bar" 
+                 style="height: 70.2%" 
+                 data-position="-12" 
+                 data-count="79094" 
+                 data-percent="3.95">
+                <div class="bar-value">79094</div>
+                <div class="bar-label">-12</div>
+            </div>
+            <div class="bar" 
+                 style="height: 77.6%" 
+                 data-position="-10" 
+                 data-count="87518" 
+                 data-percent="4.38">
+                <div class="bar-value">87518</div>
+                <div class="bar-label">-10</div>
+            </div>
+            <div class="bar" 
+                 style="height: 85.5%" 
+                 data-position="-8" 
+                 data-count="96356" 
+                 data-percent="4.82">
+                <div class="bar-value">96356</div>
+                <div class="bar-label">-8</div>
+            </div>
+            <div class="bar" 
+                 style="height: 91.3%" 
+                 data-position="-6" 
+                 data-count="102975" 
+                 data-percent="5.15">
+                <div class="bar-value">102975</div>
+                <div class="bar-label">-6</div>
+            </div>
+            <div class="bar" 
+                 style="height: 96.3%" 
+                 data-position="-4" 
+                 data-count="108578" 
+                 data-percent="5.43">
+                <div class="bar-value">108578</div>
+                <div class="bar-label">-4</div>
+            </div>
+            <div class="bar" 
+                 style="height: 99.1%" 
+                 data-position="-2" 
+                 data-count="111755" 
+                 data-percent="5.59">
+                <div class="bar-value">111755</div>
+                <div class="bar-label">-2</div>
+            </div>
+            <div class="bar" 
+                 style="height: 100.0%" 
+                 data-position="0" 
+                 data-count="112734" 
+                 data-percent="5.64">
+                <div class="bar-value">112734</div>
+                <div class="bar-label">0</div>
+            </div>
+            <div class="bar" 
+                 style="height: 98.9%" 
+                 data-position="2" 
+                 data-count="111484" 
+                 data-percent="5.57">
+                <div class="bar-value">111484</div>
+                <div class="bar-label">2</div>
+            </div>
+            <div class="bar" 
+                 style="height: 95.9%" 
+                 data-position="4" 
+                 data-count="108165" 
+                 data-percent="5.41">
+                <div class="bar-value">108165</div>
+                <div class="bar-label">4</div>
+            </div>
+            <div class="bar" 
+                 style="height: 91.5%" 
+                 data-position="6" 
+                 data-count="103190" 
+                 data-percent="5.16">
+                <div class="bar-value">103190</div>
+                <div class="bar-label">6</div>
+            </div>
+            <div class="bar" 
+                 style="height: 85.5%" 
+                 data-position="8" 
+                 data-count="96434" 
+                 data-percent="4.82">
+                <div class="bar-value">96434</div>
+                <div class="bar-label">8</div>
+            </div>
+            <div class="bar" 
+                 style="height: 77.8%" 
+                 data-position="10" 
+                 data-count="87670" 
+                 data-percent="4.38">
+                <div class="bar-value">87670</div>
+                <div class="bar-label">10</div>
+            </div>
+            <div class="bar" 
+                 style="height: 70.1%" 
+                 data-position="12" 
+                 data-count="79045" 
+                 data-percent="3.95">
+                <div class="bar-value">79045</div>
+                <div class="bar-label">12</div>
+            </div>
+            <div class="bar" 
+                 style="height: 61.5%" 
+                 data-position="14" 
+                 data-count="69332" 
+                 data-percent="3.47">
+                <div class="bar-value">69332</div>
+                <div class="bar-label">14</div>
+            </div>
+            <div class="bar" 
+                 style="height: 53.1%" 
+                 data-position="16" 
+                 data-count="59811" 
+                 data-percent="2.99">
+                <div class="bar-value">59811</div>
+                <div class="bar-label">16</div>
+            </div>
+            <div class="bar" 
+                 style="height: 44.7%" 
+                 data-position="18" 
+                 data-count="50400" 
+                 data-percent="2.52">
+                <div class="bar-value">50400</div>
+                <div class="bar-label">18</div>
+            </div>
+            <div class="bar" 
+                 style="height: 36.8%" 
+                 data-position="20" 
+                 data-count="41508" 
+                 data-percent="2.08">
+                <div class="bar-value">41508</div>
+                <div class="bar-label">20</div>
+            </div>
+            <div class="bar" 
+                 style="height: 29.8%" 
+                 data-position="22" 
+                 data-count="33624" 
+                 data-percent="1.68">
+                <div class="bar-value">33624</div>
+                <div class="bar-label">22</div>
+            </div>
+            <div class="bar" 
+                 style="height: 23.8%" 
+                 data-position="24" 
+                 data-count="26807" 
+                 data-percent="1.34">
+                <div class="bar-value">26807</div>
+                <div class="bar-label">24</div>
+            </div>
+            <div class="bar" 
+                 style="height: 18.5%" 
+                 data-position="26" 
+                 data-count="20812" 
+                 data-percent="1.04">
+                <div class="bar-value">20812</div>
+                <div class="bar-label">26</div>
+            </div>
+            <div class="bar" 
+                 style="height: 14.1%" 
+                 data-position="28" 
+                 data-count="15859" 
+                 data-percent="0.79">
+                <div class="bar-value">15859</div>
+                <div class="bar-label">28</div>
+            </div>
+            <div class="bar" 
+                 style="height: 10.4%" 
+                 data-position="30" 
+                 data-count="11729" 
+                 data-percent="0.59">
+                <div class="bar-value">11729</div>
+                <div class="bar-label">30</div>
+            </div>
+            <div class="bar" 
+                 style="height: 7.7%" 
+                 data-position="32" 
+                 data-count="8696" 
+                 data-percent="0.43">
+                <div class="bar-value">8696</div>
+                <div class="bar-label">32</div>
+            </div>
+            <div class="bar" 
+                 style="height: 5.5%" 
+                 data-position="34" 
+                 data-count="6204" 
+                 data-percent="0.31">
+                <div class="bar-value">6204</div>
+                <div class="bar-label">34</div>
+            </div>
+            <div class="bar" 
+                 style="height: 3.9%" 
+                 data-position="36" 
+                 data-count="4379" 
+                 data-percent="0.22">
+                <div class="bar-value">4379</div>
+                <div class="bar-label">36</div>
+            </div>
+            <div class="bar" 
+                 style="height: 2.6%" 
+                 data-position="38" 
+                 data-count="2952" 
+                 data-percent="0.15">
+                <div class="bar-value">2952</div>
+                <div class="bar-label">38</div>
+            </div>
+            <div class="bar" 
+                 style="height: 1.8%" 
+                 data-position="40" 
+                 data-count="2048" 
+                 data-percent="0.10">
+                <div class="bar-value">2048</div>
+                <div class="bar-label">40</div>
+            </div>
+            <div class="bar" 
+                 style="height: 1.2%" 
+                 data-position="42" 
+                 data-count="1328" 
+                 data-percent="0.07">
+                <div class="bar-value">1328</div>
+                <div class="bar-label">42</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.7%" 
+                 data-position="44" 
+                 data-count="836" 
+                 data-percent="0.04">
+                <div class="bar-value">836</div>
+                <div class="bar-label">44</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.5%" 
+                 data-position="46" 
+                 data-count="604" 
+                 data-percent="0.03">
+                <div class="bar-value">604</div>
+                <div class="bar-label">46</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.3%" 
+                 data-position="48" 
+                 data-count="322" 
+                 data-percent="0.02">
+                <div class="bar-value">322</div>
+                <div class="bar-label">48</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.2%" 
+                 data-position="50" 
+                 data-count="230" 
+                 data-percent="0.01">
+                <div class="bar-value">230</div>
+                <div class="bar-label">50</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.1%" 
+                 data-position="52" 
+                 data-count="125" 
+                 data-percent="0.01">
+                <div class="bar-value">125</div>
+                <div class="bar-label">52</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.1%" 
+                 data-position="54" 
+                 data-count="68" 
+                 data-percent="0.00">
+                <div class="bar-value">68</div>
+                <div class="bar-label">54</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.0%" 
+                 data-position="56" 
+                 data-count="42" 
+                 data-percent="0.00">
+                <div class="bar-value">42</div>
+                <div class="bar-label">56</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.0%" 
+                 data-position="58" 
+                 data-count="26" 
+                 data-percent="0.00">
+                <div class="bar-value">26</div>
+                <div class="bar-label">58</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.0%" 
+                 data-position="60" 
+                 data-count="11" 
+                 data-percent="0.00">
+                <div class="bar-value">11</div>
+                <div class="bar-label">60</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.0%" 
+                 data-position="62" 
+                 data-count="8" 
+                 data-percent="0.00">
+                <div class="bar-value">8</div>
+                <div class="bar-label">62</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.0%" 
+                 data-position="64" 
+                 data-count="1" 
+                 data-percent="0.00">
+                <div class="bar-value">1</div>
+                <div class="bar-label">64</div>
+            </div>
+            <div class="bar" 
+                 style="height: 0.0%" 
+                 data-position="66" 
+                 data-count="1" 
+                 data-percent="0.00">
+                <div class="bar-value">1</div>
+                <div class="bar-label">66</div>
+            </div>
+        </div>
+        
+        <div class="axis-label x-axis">Конечная позиция</div>
+        <div class="axis-label y-axis">Количество случаев</div>
+        
+        <div id="tooltip" class="tooltip"></div>
+        
+        <script>
+            const bars = document.querySelectorAll('.bar');
+            const tooltip = document.getElementById('tooltip');
+            
+            bars.forEach(bar => {
+                bar.addEventListener('mouseover', (e) => {
+                    const rect = bar.getBoundingClientRect();
+                    
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = (rect.left + window.scrollX) + 'px';
+                    tooltip.style.top = (rect.top + window.scrollY - 80) + 'px';
+                    
+                    tooltip.innerHTML = 
+                        '<strong>Позиция:</strong> ' + bar.dataset.position + '<br>' +
+                        '<strong>Количество:</strong> ' + bar.dataset.count + '<br>' +
+                        '<strong>Доля от общего:</strong> ' + bar.dataset.percent + '%';
+                });
+                
+                bar.addEventListener('mouseout', () => {
+                    tooltip.style.display = 'none';
+                });
+            });
+            
+            const histogram = document.getElementById('histogram');
+            const svgNS = "http://www.w3.org/2000/svg";
+            const normalCurve = document.createElementNS(svgNS, "svg");
+            normalCurve.setAttribute("class", "normal-curve");
+            normalCurve.setAttribute("width", "100%");
+            normalCurve.setAttribute("height", "100%");
+            
+            const path = document.createElementNS(svgNS, "path");
+            path.setAttribute("class", "normal-line");
+            
+            const mean = -0.00;
+            const stdDev = 14.13;
+            const maxCnt = 112734;
+            const minPos = -68;
+            const maxPos = 66;
+            
+            const points = [];
+            
+            for(let i = -3; i <= 3; i += 0.1) {
+                const x = mean + i * stdDev;
+                const y = Math.exp(-i*i/2) / (stdDev * Math.sqrt(2*Math.PI)) * maxCnt * 10;
+                points.push([x, y]);
+            }
+            
+            const xScale = 100 / (maxPos - minPos);
+            const yScale = 500 / maxCnt;
+            
+            let d = "M ";
+            points.forEach((point, i) => {
+                const x = (point[0] - minPos) * xScale;
+                const y = 500 - point[1] * yScale;
+                d += x + "," + y + " ";
+                if(i < points.length - 1) d += "L ";
+            });
+            
+            path.setAttribute("d", d);
+            normalCurve.appendChild(path);
+            histogram.appendChild(normalCurve);
+        </script>
+        
+        <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+            <h3 style="margin-top: 0;">Интерпретация данных:</h3>
+            <ul>
+                <li>Гистограмма показывает распределение конечных позиций после 200 шагов случайного блуждания</li>
+                <li>Теоретически, распределение должно быть близко к нормальному N(0, √200≈14.14)</li>
+                <li>Красная пунктирная линия показывает теоретическое нормальное распределение</li>
+                <li>Наведите курсор на столбец для детальной информации</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
