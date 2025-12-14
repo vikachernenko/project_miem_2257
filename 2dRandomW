@@ -1,0 +1,273 @@
+package main
+
+import (
+	"encoding/csv"
+	"fmt"
+	"image"
+	"image/color"
+	"image/png"
+	"log"
+	"math"
+	"os"
+	"strconv"
+	"strings"
+)
+
+type BinData struct {
+	Bin   int
+	RMin  float64
+	RMax  float64
+	Count int
+}
+
+func main() {
+	bins, err := readHistogramData("histogram_2d.csv")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	createSimpleHistogramImage(bins, "simple_histogram.png")
+	
+	createTextReport(bins, "report.txt")
+}
+
+func readHistogramData(filename string) ([]BinData, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	var bins []BinData
+	for i := 1; i < len(records); i++ {
+		if len(records[i]) < 4 {
+			continue
+		}
+
+		bin, _ := strconv.Atoi(strings.TrimSpace(records[i][0]))
+		rMin, _ := strconv.ParseFloat(strings.TrimSpace(records[i][1]), 64)
+		rMax, _ := strconv.ParseFloat(strings.TrimSpace(records[i][2]), 64)
+		count, _ := strconv.Atoi(strings.TrimSpace(records[i][3]))
+
+		bins = append(bins, BinData{
+			Bin:   bin,
+			RMin:  rMin,
+			RMax:  rMax,
+			Count: count,
+		})
+	}
+
+	return bins, nil
+}
+
+func createSimpleHistogramImage(bins []BinData, filename string) {
+	width, height := 800, 600
+	margin := 50
+	
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+			img.Set(x, y, color.White)
+		}
+	}
+	
+	displayBins := len(bins) - 1
+	if displayBins < 1 {
+		displayBins = len(bins)
+	}
+	
+	maxCount := 0
+	total := 0
+	for i := 0; i < displayBins; i++ {
+		if bins[i].Count > maxCount {
+			maxCount = bins[i].Count
+		}
+		total += bins[i].Count
+	}
+	
+	drawLine(img, margin, margin, margin, height-margin, color.Black)       // Y ось
+	drawLine(img, margin, height-margin, width-margin, height-margin, color.Black) // X ось
+	
+	barWidth := (width - 2*margin) / displayBins
+	if barWidth < 1 {
+		barWidth = 1
+	}
+	
+	for i := 0; i < displayBins; i++ {
+		if bins[i].Count == 0 {
+			continue
+		}
+		
+		barHeight := int(float64(bins[i].Count) / float64(maxCount) * float64(height-2*margin-20))
+		
+		x1 := margin + i*barWidth
+		x2 := x1 + barWidth - 1
+		y1 := height - margin - barHeight
+		y2 := height - margin - 1
+		
+		blueValue := uint8(100 + (155 * i / displayBins))
+		barColor := color.RGBA{R: 30, G: 144, B: blueValue, A: 255}
+		
+		for x := x1; x <= x2; x++ {
+			for y := y1; y <= y2; y++ {
+				if x >= 0 && x < width && y >= 0 && y < height {
+					img.Set(x, y, barColor)
+				}
+			}
+		}
+		
+		drawRectangle(img, x1, y1, x2, y2, color.RGBA{R: 0, G: 0, B: 0, A: 255})
+	}
+	
+	drawText(img, width/2, height-10, "Расстояние R", color.Black)
+	drawText(img, 10, height/2, "Количество", color.Black)
+	
+	title := "1D Random Walk – распределение конечных позиций"
+	drawText(img, width/2, 20, title, color.RGBA{R: 0, G: 0, B: 139, A: 255})
+	
+	stats := fmt.Sprintf("Всего случаев: %d | Макс. частота: %d", total, maxCount)
+	drawText(img, width/2, 40, stats, color.RGBA{R: 139, G: 0, B: 0, A: 255})
+	
+	file, err := os.Create(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	
+	if err := png.Encode(file, img); err != nil {
+		log.Fatal(err)
+	}
+	
+	fmt.Printf("Гистограмма сохранена в: %s\n", filename)
+}
+
+func drawLine(img *image.RGBA, x1, y1, x2, y2 int, c color.Color) {
+	dx := abs(x2 - x1)
+	dy := abs(y2 - y1)
+	sx, sy := 1, 1
+	
+	if x1 > x2 {
+		sx = -1
+	}
+	if y1 > y2 {
+		sy = -1
+	}
+	
+	err := dx - dy
+	
+	for {
+		img.Set(x1, y1, c)
+		if x1 == x2 && y1 == y2 {
+			break
+		}
+		
+		e2 := 2 * err
+		if e2 > -dy {
+			err -= dy
+			x1 += sx
+		}
+		if e2 < dx {
+			err += dx
+			y1 += sy
+		}
+	}
+}
+
+func drawRectangle(img *image.RGBA, x1, y1, x2, y2 int, c color.Color) {
+	drawLine(img, x1, y1, x2, y1, c) 
+	drawLine(img, x1, y2, x2, y2, c) 
+	drawLine(img, x1, y1, x1, y2, c) 
+	drawLine(img, x2, y1, x2, y2, c) 
+}
+
+func drawText(img *image.RGBA, x, y int, text string, c color.Color) {	for i, ch := range text {
+		if ch != ' ' {
+			img.Set(x+i*6, y, c)
+			img.Set(x+i*6+1, y, c)
+			img.Set(x+i*6, y+1, c)
+			img.Set(x+i*6+1, y+1, c)
+		}
+	}
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
+func createTextReport(bins []BinData, filename string) {
+	file, err := os.Create(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	
+	file.WriteString("ОТЧЕТ ПО ГИСТОГРАММЕ 1D RANDOM WALK\n")
+	file.WriteString(strings.Repeat("=", 50) + "\n\n")
+	
+	total := 0
+	maxCount := 0
+	emptyBins := 0
+	
+	for _, bin := range bins {
+		total += bin.Count
+		if bin.Count > maxCount {
+			maxCount = bin.Count
+		}
+		if bin.Count == 0 {
+			emptyBins++
+		}
+	}
+	
+	file.WriteString("ОБЩАЯ СТАТИСТИКА:\n")
+	file.WriteString(strings.Repeat("-", 30) + "\n")
+	file.WriteString(fmt.Sprintf("Всего случаев: %d\n", total))
+	file.WriteString(fmt.Sprintf("Количество бинов: %d\n", len(bins)))
+	file.WriteString(fmt.Sprintf("Пустых бинов: %d\n", emptyBins))
+	file.WriteString(fmt.Sprintf("Максимальная частота: %d\n", maxCount))
+	
+	file.WriteString("\nДАННЫЕ ГИСТОГРАММЫ:\n")
+	file.WriteString(strings.Repeat("-", 70) + "\n")
+	file.WriteString(fmt.Sprintf("%-6s %-12s %-12s %-12s %-12s\n", 
+		"Бин", "R_min", "R_max", "Кол-во", "Доля %"))
+	
+	for _, bin := range bins {
+		percentage := float64(bin.Count) / float64(total) * 100
+		file.WriteString(fmt.Sprintf("%-6d %-12.4f %-12.4f %-12d %-12.2f\n",
+			bin.Bin, bin.RMin, bin.RMax, bin.Count, percentage))
+	}
+	
+з
+	file.WriteString("\nАНАЛИЗ ДАННЫХ:\n")
+	file.WriteString(strings.Repeat("-", 30) + "\n")
+
+	cumulative := 0
+	for _, bin := range bins {
+		cumulative += bin.Count
+		percentage := float64(cumulative) / float64(total) * 100
+		
+		if math.Abs(percentage-25) < 2 {
+			file.WriteString(fmt.Sprintf("25%% случаев: R ≤ %.3f\n", bin.RMax))
+		}
+		if math.Abs(percentage-50) < 2 {
+			file.WriteString(fmt.Sprintf("Медиана (50%%): R ≤ %.3f\n", bin.RMax))
+		}
+		if math.Abs(percentage-75) < 2 {
+			file.WriteString(fmt.Sprintf("75%% случаев: R ≤ %.3f\n", bin.RMax))
+		}
+		if math.Abs(percentage-90) < 2 {
+			file.WriteString(fmt.Sprintf("90%% случаев: R ≤ %.3f\n", bin.RMax))
+		}
+	}
+	
+	fmt.Printf("Текстовый отчет сохранен в: %s\n", filename)
+}
