@@ -1,0 +1,42 @@
+PS C:\Users\Lev\OneDrive\Рабочий стол\clean_repo_for_CUDA\day4> ./zombie_sim.exe 150 150 1500 50 0.6 800
+--- ZOMBIE APOCALYPSE ---
+Grid: 150x150 | Humans: 1500 | Zombies: 50
+Win probability (p): 0.6 | Max steps: 800
+Simulation ended naturally at step 559.
+
+=== PERFORMANCE BENCHMARK ===
+Pure GPU Compute Time: 30.3142 ms
+Average time per step: 0.0541325 ms
+=============================
+
+PS C:\Users\Lev\OneDrive\Рабочий стол\clean_repo_for_CUDA\day4\fire> ./fire_sim.exe 200 200 0.65 0.3 0.0001 0.1 300
+--- FOREST FIRE MODEL ---
+Grid: 200x200 | Forest Density: 65%
+
+=== PERFORMANCE BENCHMARK ===
+Pure GPU Compute Time: 28.627 ms
+Average time per step: 0.0954232 ms
+
+PS C:\Users\Lev\OneDrive\Рабочий стол\clean_repo_for_CUDA\day4\pandemic_spread> ./pandemic_sim.exe 10000 0.1 0.3 0.1 200 smallworld.csv
+--- PANDEMIC SPREAD (Small World Network) ---
+Population: 10000 | Beta (rewire): 0.1
+Lambda (infect): 0.3 | Gamma (recover): 0.1
+Epidemic ended on day 104.
+
+=== PANDEMIC BENCHMARK ===
+Total GPU Time: 4.36064 ms
+Avg time per day: 0.0415299 ms
+
+PS C:\Users\Lev\OneDrive\Рабочий стол\clean_repo_for_CUDA\day4\pandemic_spread> ./pandemic_sim.exe 10000 0.0 0.3 0.1 200 regular.csv
+--- PANDEMIC SPREAD (Small World Network) ---
+Population: 10000 | Beta (rewire): 0
+Lambda (infect): 0.3 | Gamma (recover): 0.1
+
+=== PANDEMIC BENCHMARK ===
+Total GPU Time: 10.9267 ms
+Avg time per day: 0.0546336 ms
+
+PS C:\Users\Lev\OneDrive\Рабочий стол\clean_repo_for_CUDA\day4\pandemic_spread> python visualize_pandemic.py
+=== Comparative Analysis ===
+Regular Lattice Peak Infected: 87 people (Duration: 200 days)
+Small World Peak Infected:     4304 people (Duration: 105 days)
